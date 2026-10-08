@@ -1,1 +1,80 @@
+name: Render Scene 1 (Blender)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Start with test_frame; choose full_animation for the 8-second MP4"
+        type: choice
+        required: true
+        default: test_frame
+        options:
+          - test_frame
+          - full_animation
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      RENDER_MODE: ${{ inputs.mode }}
+      OUTPUT_DIR: ${{ github.workspace }}/render_output
+
+    steps:
+      - name: Check out project
+        uses: actions/checkout@v4
+
+      - name: Install Blender 4.5 LTS and FFmpeg
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ffmpeg libegl1 libgl1 libxrender1 libxi6 libxkbcommon0 \
+            libxxf86vm1 libsm6 libxrandr2 libxfixes3 libxinerama1 \
+            libxcursor1 libxcomposite1 libxdamage1
+          curl --fail --location --retry 3 --retry-delay 5 \
+            --output "$RUNNER_TEMP/blender.tar.xz" \
+            "https://mirror.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz"
+          mkdir -p "$RUNNER_TEMP/blender"
+          tar -xJf "$RUNNER_TEMP/blender.tar.xz" \
+            --strip-components=1 -C "$RUNNER_TEMP/blender"
+          echo "$RUNNER_TEMP/blender" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/blender/blender" --version
+
+      - name: Build and save original Blender scene
+        shell: bash
+        run: blender --background --threads 2 --python scene01_traffic_city.py
+
+      - name: Render using CPU Cycles
+        shell: bash
+        run: |
+          blender --background \
+            "$HOME/Documents/EngineeringChannel/Scene01_TrafficMystery.blend" \
+            --threads 2 --python render_for_ci.py
+
+      - name: Encode 8-second MP4 (full animation only)
+        if: ${{ inputs.mode == 'full_animation' }}
+        shell: bash
+        run: |
+          ffmpeg -hide_banner -loglevel error -y \
+            -framerate 24 -start_number 1 \
+            -i 'render_output/frames/scene01_%04d.png' \
+            -c:v libx264 -pix_fmt yuv420p -crf 22 \
+            -movflags +faststart \
+            'render_output/Scene01_TrafficMystery.mp4'
+          test -s 'render_output/Scene01_TrafficMystery.mp4'
+
+      - name: Upload rendered files
+        uses: actions/upload-artifact@v4
+        with:
+          name: scene-1-${{ inputs.mode }}
+          path: |
+            render_output/*.png
+            render_output/*.mp4
+            render_output/*.blend
+          if-no-files-found: error
+          retention-days: 7
 
