@@ -529,8 +529,8 @@ def create_car(name, x, y, body_color):
 
     parts = [body, roof, hood, trunk, windshield, rear_glass, h1, h2, b1, b2] + wheels
     for part in parts:
-        part.parent = root
-        part.matrix_parent_inverse = root.matrix_world.inverted()
+    part.parent = root
+    part.matrix_parent_inverse.identity()
 
     return {
         "root": root,
