@@ -528,7 +528,7 @@ def create_car(name, x, y, body_color):
     b2 = cube(name + "_BrakeR", location=(0.30, -1.37, 0.39), scale=(0.18, 0.06, 0.10), material=brake_mat_r)
 
     parts = [body, roof, hood, trunk, windshield, rear_glass, h1, h2, b1, b2] + wheels
-        for part in parts:
+    for part in parts:
         part.parent = root
         part.matrix_parent_inverse.identity()
 
